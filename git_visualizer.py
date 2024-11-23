@@ -2,10 +2,8 @@ import os
 import subprocess
 import argparse
 import git
-import plantuml
 import tempfile
 import shutil
-
 
 def generate_commit_graph(repo_path, tag, plantuml_path):
     # Проверим, существует ли репозиторий
@@ -34,24 +32,34 @@ def generate_commit_graph(repo_path, tag, plantuml_path):
     # Формирование содержимого для PlantUML
     plantuml_content = '@startuml\n'
     for commit in commit_log.splitlines():
-        commit_hash, commit_message = commit.split(" ", 1)
-        plantuml_content += f"commit {commit_hash} : {commit_message}\n"
+        try:
+            commit_hash, commit_message = commit.split(" ", 1)
+            plantuml_content += f"commit {commit_hash} : {commit_message}\n"
+        except ValueError:
+            print(f"Ошибка при разборе коммита: {commit}")
+            continue
     plantuml_content += '@enduml\n'
 
     # Сохранение в временный файл для передачи в PlantUML
-    with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=".puml") as temp_file:
-        temp_file.write(plantuml_content)
-        temp_puml_file = temp_file.name
-
-    # Запуск PlantUML
     try:
-        subprocess.run(["java", "-jar", plantuml_path, temp_puml_file], check=True)
-        print(f"Граф коммитов успешно сгенерирован и сохранен в {temp_puml_file}.")
-    except subprocess.CalledProcessError as e:
-        print(f"Ошибка при запуске PlantUML: {e}")
-    finally:
-        # Удаляем временный файл
-        os.remove(temp_puml_file)
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=".puml") as temp_file:
+            temp_file.write(plantuml_content)
+            temp_puml_file = temp_file.name
+            print(f"Временный файл .puml создан: {temp_puml_file}")
+
+        # Запуск PlantUML
+        try:
+            subprocess.run(["java", "-jar", plantuml_path, temp_puml_file], check=True)
+            print(f"Граф коммитов успешно сгенерирован и сохранен в {temp_puml_file}.")
+        except subprocess.CalledProcessError as e:
+            print(f"Ошибка при запуске PlantUML: {e}")
+        finally:
+            # Удаляем временный файл
+            os.remove(temp_puml_file)
+            print(f"Временный файл {temp_puml_file} удален.")
+    
+    except IOError as e:
+        print(f"Ошибка при работе с временным файлом: {e}")
 
 
 def main():
